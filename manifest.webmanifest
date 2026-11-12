@@ -1,0 +1,17 @@
+{
+  "name": "Tlmočník",
+  "short_name": "Tlmočník",
+  "description": "Hlasový tlmočník: hovoríš po slovensky, aplikácia to povie v inom jazyku tvojím hlasom.",
+  "lang": "sk",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0e1320",
+  "theme_color": "#4f46e5",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "icons/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

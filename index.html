@@ -1,0 +1,228 @@
+<!doctype html>
+<html lang="sk">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Tlmočník</title>
+  <meta name="description" content="Hlasový tlmočník: hovoríš po slovensky, aplikácia to povie v inom jazyku tvojím hlasom.">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: blob:; media-src 'self' blob:; worker-src 'self'; connect-src 'self' https://*.soniox.com wss://*.soniox.com https://api.anthropic.com http://localhost:* ws://localhost:* http://127.0.0.1:* ws://127.0.0.1:*">
+  <meta name="theme-color" content="#f6f7fb" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#0e1320" media="(prefers-color-scheme: dark)">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="Tlmočník">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div id="app" class="app">
+    <header class="topbar">
+      <div class="brand"><img src="icons/icon.svg" alt="" width="28" height="28"><span>Tlmočník</span></div>
+      <div class="actions">
+        <button id="btnSpeak" class="icon-btn" type="button" aria-pressed="true" title="Hlasový výstup">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9v6h4l5 4V5L8 9H4z"/><path class="wave" d="M16 8.5a5 5 0 0 1 0 7M18.5 6a8.5 8.5 0 0 1 0 12"/><path class="mute" d="M16.5 9.5l5 5m0-5l-5 5"/></svg>
+        </button>
+        <button id="btnClear" class="icon-btn" type="button" title="Vymazať prepis">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7h14M10 7V5h4v2M7 7l1 12h8l1-12"/></svg>
+        </button>
+        <button id="btnSettings" class="icon-btn" type="button" title="Nastavenia">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19 12a7 7 0 0 0-.1-1.3l2-1.5-2-3.4-2.3.9a7 7 0 0 0-2.3-1.3L14 3h-4l-.3 2.4a7 7 0 0 0-2.3 1.3l-2.3-.9-2 3.4 2 1.5a7 7 0 0 0 0 2.6l-2 1.5 2 3.4 2.3-.9a7 7 0 0 0 2.3 1.3L10 21h4l.3-2.4a7 7 0 0 0 2.3-1.3l2.3.9 2-3.4-2-1.5c.1-.4.1-.9.1-1.3z"/></svg>
+        </button>
+      </div>
+    </header>
+
+    <section class="langbar" aria-label="Jazyky">
+      <button id="btnLangA" class="lang-btn" type="button"><small>Hovorím</small><span></span></button>
+      <button id="btnSwap" class="icon-btn swap" type="button" title="Vymeniť jazyky">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 7h12l-3-3M17 17H5l3 3"/></svg>
+      </button>
+      <button id="btnLangB" class="lang-btn" type="button"><small>Preklad do</small><span></span></button>
+    </section>
+
+    <div class="modebar" role="group" aria-label="Režim">
+      <button type="button" data-mode="oneway">Hovorím ja</button>
+      <button type="button" data-mode="conversation">Rozhovor</button>
+    </div>
+
+    <main id="transcript" class="transcript" aria-live="polite">
+      <div id="welcome" class="welcome"></div>
+    </main>
+
+    <footer class="dock">
+      <form id="textForm" class="textrow" autocomplete="off">
+        <input id="textInput" type="text" placeholder="Alebo napíš, čo chceš povedať…" enterkeyhint="send" aria-label="Text na preklad">
+        <button class="icon-btn" type="submit" title="Preložiť a povedať">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12l16-8-6 16-2.5-6.5L4 12z"/></svg>
+        </button>
+      </form>
+      <div class="statusrow">
+        <span id="status" class="status">Pripravený</span>
+        <span id="badge" class="badge"></span>
+      </div>
+      <div class="microw">
+        <button id="btnQuiet" class="btn ghost" type="button" hidden>Stíchni</button>
+        <button id="btnMic" class="mic" type="button" aria-pressed="false" aria-label="Spustiť počúvanie">
+          <span class="ring" aria-hidden="true"></span>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><rect class="glyph-mic" x="9" y="3" width="6" height="11" rx="3"/><path class="glyph-mic" d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21"/><rect class="glyph-stop" x="7" y="7" width="10" height="10" rx="2"/></svg>
+        </button>
+        <span class="hotkey" id="hotkeyHint" hidden>Ctrl+Alt+Medzerník</span>
+      </div>
+    </footer>
+  </div>
+
+  <dialog id="dlgLang" class="sheet small">
+    <div class="sheet-head">
+      <h2 id="dlgLangTitle">Vyber jazyk</h2>
+      <button class="icon-btn" type="button" data-close aria-label="Zavrieť">✕</button>
+    </div>
+    <div class="sheet-body">
+      <div id="langMine" class="lang-list"></div>
+      <h3>Pridať ďalší jazyk</h3>
+      <input id="langSearch" type="search" placeholder="Hľadať (napr. nemčina, Deutsch, de)…" aria-label="Hľadať jazyk">
+      <div id="langAll" class="lang-list"></div>
+    </div>
+  </dialog>
+
+  <dialog id="dlgSettings" class="sheet">
+    <div class="sheet-head">
+      <h2>Nastavenia</h2>
+      <button class="icon-btn" type="button" data-close aria-label="Zavrieť">✕</button>
+    </div>
+    <div class="sheet-body">
+
+      <details id="secKeys" open>
+        <summary>API kľúče</summary>
+        <label>Soniox API kľúč
+          <input id="setSonioxKey" type="password" autocomplete="off" spellcheck="false" placeholder="povinný">
+        </label>
+        <p class="hint">Rozpoznávanie reči, preklad a hlas. Kľúč vytvoríš na <a href="https://console.soniox.com" target="_blank" rel="noopener">console.soniox.com</a>.</p>
+        <label>Región Soniox projektu
+          <select id="setRegion"></select>
+        </label>
+        <label>Anthropic API kľúč
+          <input id="setAnthropicKey" type="password" autocomplete="off" spellcheck="false" placeholder="voliteľný – pre inteligentnú opravu reči">
+        </label>
+        <p class="hint">Claude opraví zakoktania, výplnkové slová a chyby rozpoznania skôr, než sa veta preloží. Kľúč vytvoríš na <a href="https://platform.claude.com" target="_blank" rel="noopener">platform.claude.com</a>. Bez neho beží rýchly preklad bez opráv.</p>
+        <div class="row">
+          <button id="btnCheckKeys" class="btn" type="button">Overiť kľúče</button>
+          <span id="keysResult" class="result"></span>
+        </div>
+        <p class="hint">Kľúče zostávajú len v tomto zariadení a posielajú sa iba priamo službám Soniox a Anthropic.</p>
+      </details>
+
+      <details id="secVoice">
+        <summary>Môj hlas</summary>
+        <label>Hlas, ktorým hovorí môj preklad
+          <select id="setVoiceMine"></select>
+        </label>
+        <label>Hlas pre partnera (režim Rozhovor)
+          <select id="setVoiceOther"></select>
+        </label>
+        <div class="row">
+          <button id="btnTestVoice" class="btn" type="button">Vyskúšať hlas</button>
+          <button id="btnReloadVoices" class="btn ghost" type="button">Obnoviť zoznam</button>
+          <button id="btnDeleteVoice" class="btn ghost danger" type="button" hidden>Zmazať môj hlas</button>
+        </div>
+
+        <h3>Vytvoriť vlastný hlas</h3>
+        <p class="hint">Nahraj 30–60 sekúnd svojej reči v tichej miestnosti (najviac 2 minúty). Hovor prirodzene, tak ako bežne rozprávaš – hlas potom znie rovnako vo všetkých jazykoch.</p>
+        <blockquote id="voiceScript" class="script">Dobrý deň, volám sa tak, ako ma všetci poznajú, a toto je môj obyčajný hlas. Rád cestujem, spoznávam nových ľudí a rozprávam sa s nimi o práci aj o bežných veciach. Niekedy hovorím rýchlejšie, inokedy si dám načas a premýšľam nahlas. Dnes je celkom pekný deň, a tak si po práci možno vyjdem na krátku prechádzku. Táto aplikácia mi pomôže dohovoriť sa aj tam, kde po slovensky nikto nerozumie.</blockquote>
+        <div class="row">
+          <button id="btnRecord" class="btn" type="button">● Nahrať vzorku</button>
+          <label class="btn ghost file">Vybrať súbor<input id="voiceFile" type="file" accept="audio/*" hidden></label>
+          <span id="recordInfo" class="result"></span>
+        </div>
+        <audio id="voicePreview" controls hidden></audio>
+        <label>Názov hlasu
+          <input id="voiceName" type="text" maxlength="60" value="Môj hlas">
+        </label>
+        <label class="check"><input id="voiceConsent" type="checkbox"> Potvrdzujem, že na nahrávke je môj vlastný hlas.</label>
+        <div class="row">
+          <button id="btnCreateVoice" class="btn primary" type="button" disabled>Vytvoriť hlas</button>
+          <span id="voiceResult" class="result"></span>
+        </div>
+      </details>
+
+      <details id="secSmart">
+        <summary>Inteligentná oprava reči</summary>
+        <label class="check"><input id="setSmart" type="checkbox"> Opravovať nedokonalosti reči pred prekladom (Claude)</label>
+        <label>Model
+          <select id="setLlmModel"></select>
+        </label>
+        <p class="hint">Pri živom tlmočení je najsvižnejší Haiku; Opus dáva najlepšiu kvalitu, no odpovedá o niečo neskôr.</p>
+        <label>Vlastné výrazy a mená
+          <textarea id="setGlossary" rows="4" placeholder="Jeden na riadok. Napr.:&#10;Kovotrend&#10;Žilina&#10;živnosť = sole proprietorship"></textarea>
+        </label>
+        <p class="hint">Mená, firmy a odborné výrazy, ktoré má aplikácia rozpoznať správne. Zápis „výraz = preklad“ určí aj to, ako sa má preložiť.</p>
+        <label>Pokyny pre preklad
+          <textarea id="setInstructions" rows="2" placeholder="Napr.: Hovorím s obchodnými partnermi, prekladaj zdvorilo a formálne."></textarea>
+        </label>
+      </details>
+
+      <details id="secAudio">
+        <summary>Zvuk a mikrofón</summary>
+        <label>Mikrofón
+          <select id="setMic"></select>
+        </label>
+        <label id="outRow">Výstup zvuku
+          <select id="setOut"></select>
+        </label>
+        <label class="check"><input id="setHeadphones" type="checkbox"> Používam slúchadlá (mikrofón počas prekladu nestlmovať)</label>
+        <p class="hint">Bez slúchadiel sa mikrofón počas hovoreného prekladu na chvíľu stlmí, aby aplikácia neprekladala samu seba.</p>
+        <label>Kedy považovať vetu za dopovedanú
+          <select id="setResponsiveness">
+            <option value="patient">Trpezlivo – robím dlhšie pauzy</option>
+            <option value="normal">Normálne</option>
+            <option value="fast">Rýchlo – krátke vety, svižný rozhovor</option>
+          </select>
+        </label>
+        <label>Rýchlosť reči: <output id="speedOut"></output>
+          <input id="setSpeed" type="range" min="0.7" max="1.3" step="0.05">
+        </label>
+      </details>
+
+      <details id="secLangs">
+        <summary>Moje jazyky</summary>
+        <p class="hint">Jazyky, ktoré sa ponúkajú pri výbere. Ďalší pridáš ťuknutím na jazyk na hlavnej obrazovke.</p>
+        <div id="myLangs" class="chips"></div>
+        <button id="btnAddLang" class="btn" type="button">+ Pridať jazyk</button>
+      </details>
+
+      <details id="secPhone">
+        <summary>Telefón a prenos nastavení</summary>
+        <p class="hint">Aplikácia beží aj v telefóne ako webová aplikácia (PWA). Otvor jej adresu v Chrome (Android) alebo v Safari (iPhone) a zvoľ „Pridať na plochu“.</p>
+        <label>Adresa webovej verzie
+          <input id="setPwaUrl" type="url" inputmode="url" placeholder="https://…">
+        </label>
+        <label class="check"><input id="qrKeys" type="checkbox" checked> Preniesť aj API kľúče</label>
+        <div class="row">
+          <button id="btnQr" class="btn" type="button">Zobraziť QR kód pre telefón</button>
+          <button id="btnCopyConfig" class="btn ghost" type="button">Kopírovať nastavenia</button>
+        </div>
+        <div id="qrBox" class="qr" hidden></div>
+        <label>Vložiť nastavenia z iného zariadenia
+          <textarea id="importText" rows="2" placeholder="Sem vlož skopírované nastavenia…"></textarea>
+        </label>
+        <button id="btnImport" class="btn" type="button">Načítať nastavenia</button>
+      </details>
+
+      <details id="secAdvanced">
+        <summary>Pokročilé</summary>
+        <label>Model rozpoznávania reči
+          <input id="setSttModel" type="text" spellcheck="false">
+        </label>
+        <label>Model hlasu
+          <input id="setTtsModel" type="text" spellcheck="false">
+        </label>
+        <p class="hint" id="versionInfo"></p>
+      </details>
+    </div>
+  </dialog>
+
+  <div id="toasts" class="toasts" role="status"></div>
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>
